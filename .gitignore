@@ -1,0 +1,12 @@
+.env
+*.iml
+.idea/
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+# Android local signing files (never commit release credentials)
+*.jks
+*.keystore
+keystore.properties

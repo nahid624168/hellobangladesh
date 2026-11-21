@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<title>ExamBase AI Admin</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div id="login" class="login hidden">
+  <form id="loginForm" class="card login-card" autocomplete="on">
+    <h1>ExamBase AI Admin</h1>
+    <p class="muted">Staff sign-in. Access is decided by the server, not by this page.</p>
+    <label>Email <input id="email" type="email" required autocomplete="username"></label>
+    <label>Password <input id="password" type="password" required autocomplete="current-password"></label>
+    <div id="loginError" class="error" role="alert"></div>
+    <button type="submit" class="primary">Sign in</button>
+  </form>
+</div>
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <button id="menuBtn" class="icon-btn" aria-label="Toggle menu">&#9776;</button>
+    <strong>ExamBase AI Admin</strong>
+    <span class="spacer"></span>
+    <span id="who" class="muted"></span>
+    <button id="logoutBtn">Sign out</button>
+  </header>
+  <nav id="nav" class="nav" aria-label="Sections"></nav>
+  <main id="main" class="main" tabindex="-1"></main>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+EXAMBASE AI — ANDROID APP BUILD PROMPT (40-STEP VERSION)
+=========================================================
+
+ROLE
+You are a principal Android architect, senior Kotlin engineer, UI/UX designer, backend architect, PostgreSQL engineer, DevOps engineer, QA engineer, security specialist and AI product engineer. Build ExamBase AI as a real production product, not a demo. Design for a path toward 1 million+ registered users, but never claim a capacity guarantee without load testing.
+
+CURRENT STATUS
+--------------
+Steps 1-15 are built in the project zip (ExamBaseAI-Step6.zip, renumbered to this plan; see docs/PROGRESS.md for gaps).
+Every step heading below carries a status tag: DONE, PARTIAL, NEXT or TODO. Follow CLAUDE.md and the Work queue in docs/PROGRESS.md: it schedules every PARTIAL gap as a `b` row.
+Nothing has been compiled or run yet: confirm `gradle test` (backend) and `gradle :app:testDebugUnitTest` (android) before building on it.
+
+HOW TO WORK
+-----------
+- Work through the 40 steps below IN ORDER. Do one step per response.
+- Start each step by listing the files you will create or modify.
+- Give complete, compilable code (full imports, no unexplained placeholders) and include tests.
+- Finish each step with: (a) what was delivered, (b) how to run/verify it, (c) acceptance checklist status, (d) risks or open questions, (e) "Ready for Step N+1?"
+- Wait for owner approval after Steps 4, 13, 27, 37 and 39 (checkpoints). Otherwise continue when told "next".
+- Keep package names, class names, API contracts and DB schema consistent across steps. Do not silently change earlier decisions; if a change is needed, explain why and give migration steps.
+- Do not claim code compiles or tests pass unless actually run.
+- If information is missing, state a reasonable assumption and continue; ask only essential questions.
+- Never invent credentials, API keys, prices, benchmarks or unsupported integrations. Use environment variables / a secrets manager.
+- Prioritize reliability, security, accessibility and maintainability over feature count. Avoid duplicate features under different names.
+
+PROJECT IDENTITY (FIXED STACK)
+------------------------------
+App: ExamBase AI | Platform: Android | Language: Kotlin | UI: Jetpack Compose
+Architecture: Clean Architecture + MVVM, Coroutines + Flow, Hilt, Navigation Compose
+Local: Room, DataStore, WorkManager, Paging 3, Coil
+Network client: choose Retrofit or Ktor Client (compare, then decide in Step 2)
+Backend: Kotlin + Ktor, modular monolith, PostgreSQL, Redis, S3-compatible storage, Cloudflare/equivalent CDN+WAF
+Deploy: Docker first; Kubernetes only when justified
+Admin: separate responsive web app
+AI: provider-neutral, server-side only
+Localization: English + Bangla
+
+PRODUCT RULES (APPLY IN EVERY STEP)
+-----------------------------------
+1. Hierarchy exactly: Subject -> Category -> Subcategory -> Lesson -> Questions / Quiz / Flashcards / Notes.
+2. Every Quiz Set and Flashcard Set is a separate, identifiable entity (title, description, subject, category, lesson, created date, status, progress, actions) in both UI and database. Never merge them into one list.
+3. User-created content stays separate from official/admin-published content.
+4. Do not send correct answers to the client before submission when that would compromise integrity.
+5. Scoring, payment verification, permissions and contest ranking are validated on the server only.
+6. No DB passwords, service credentials or AI keys in the APK.
+7. Every major screen has loading, empty, error, offline and retry states, plus accessibility support.
+8. Roles: Guest (optional), Registered, Premium (configurable), Moderator, Content Editor, Admin, Super Admin. Authorization is server-enforced (RBAC + resource-level); hiding admin UI is not security.
+9. Private notes are private by default; note content goes to AI only after explicit user action and consent.
+10. Never log passwords, tokens, private note content or AI secrets.
+
+------------------------------------------------------------
+PHASE 1 — PLANNING AND FOUNDATION (Steps 1–5)
+------------------------------------------------------------
+
+STEP 1 [DONE (condensed)] — Product requirements and assumptions
+Deliver: product overview, personas, roles/permission matrix, feature scope split into MVP vs later (tournaments/teams optional), assumptions, glossary of metrics (registered, MAU, DAU, peak concurrent, RPS).
+Done when: owner can read one PRD and see what is in/out of launch.
+
+STEP 2 [DONE (condensed)] — Architecture and technology choices
+Deliver: end-to-end architecture diagram, technology choices with reasons and alternatives (Retrofit vs Ktor Client, Hilt, queue choice, search choice), module boundaries and dependency direction for Android and backend, avoiding circular dependencies.
+Android modules: app, core/{designsystem,ui,network,database,datastore,model,common}, feature/{auth,home,subjects,lessons,questions,quizzes,quizsets,flashcards,flashcardsets,notes,ai,contests,exams,analytics,profile,settings}.
+Backend modules: app, shared, modules/{identity,users,academic,questions,quizzes,flashcards,contests,notes,ai,notifications,payments,analytics,admin}, infrastructure/{database,cache,messaging,storage}, observability, tests.
+
+STEP 3 [DONE (condensed)] — Screen inventory, database ERD and API plan
+Deliver: screen map and navigation flow for all required screens (Splash, Onboarding, Login, Registration, Forgot password, Home, Search, Subject/Category/Subcategory/Lesson list+detail, Question detail/practice, Quiz list/detail/player/result/history, My Quiz Sets, Create/Edit Quiz Set, Flashcard library, My Flashcard Sets, Create/Edit Flashcard Set, Study session, Flashcard progress, My Notes, Note folders/editor/detail, AI Notes assistant, AI Learning assistant, Contest list/detail/lobby/player/leaderboard/results, Exam list/detail/player/result, Analytics, Achievements, Notifications, Profile, Settings, Subscription screens if enabled, Help/support). For each: purpose, key components, actions, states, required API data.
+Also deliver: ER plan (tables, relationships, key indexes) and API module plan (endpoint groups, versioning /api/v1, pagination/filter/sort conventions, standard error format).
+
+STEP 4 [DONE (condensed)] — Security, privacy, deployment and scaling plan  [CHECKPOINT: owner approves blueprint]
+Deliver: security and privacy plan (HTTPS, short-lived access + rotating refresh tokens, Argon2id, rate limits, IDOR/BOLA protection, signed URLs, audit logs, data export/deletion), deployment and scaling roadmap, capacity assumptions and load-testing plan, risks and decisions needing owner approval (payment provider, social/OTP login, guest mode, AI provider, tournaments).
+Do not start coding until the owner approves.
+
+STEP 5 [DONE] — Repository setup, CI and design system
+Deliver: Android multi-module Gradle project, Ktor backend skeleton, Docker Compose (PostgreSQL, Redis, MinIO), CI pipeline (build, lint, unit tests), migration tool setup, design system (light/dark color tokens, typography, spacing, shapes, elevation, buttons, inputs, cards, chips, tabs, dialogs, bottom sheets, empty/loading/error components, 48dp touch targets), EN/Bangla string resources.
+Tests: project builds; sample screen renders in light/dark.
+
+------------------------------------------------------------
+PHASE 2 — AUTHENTICATION AND PROFILE (Steps 6–8)
+------------------------------------------------------------
+
+STEP 6 [DONE] — Backend identity module
+Deliver: registration, login, logout, email verification, password reset, refresh-token rotation, device/session list, rate limiting, RBAC foundation, audit log, account deletion request. DB migrations and OpenAPI for auth.
+Tests: auth flows, token expiry/rotation, brute-force limits, authorization tests.
+
+STEP 7 [DONE] — Android auth and onboarding
+Deliver: splash, onboarding (skip/continue), login, registration, forgot password, secure token storage, auth interceptor with refresh, terms/privacy consent, optional guest mode behind a flag.
+Tests: ViewModel tests, validation tests, Compose UI tests for auth screens.
+
+STEP 8 [PARTIAL] — Profile, settings and account controls
+Deliver: profile photo upload (validated), edit profile, language, theme, notification preferences, privacy controls, active sessions, data export request, delete-account workflow, about/version.
+Tests: profile API authorization, upload validation, settings persistence.
+
+------------------------------------------------------------
+PHASE 3 — ACADEMIC CONTENT (Steps 9–12)
+------------------------------------------------------------
+
+STEP 9 [DONE] — Academic hierarchy backend
+Deliver: Subject/Category/Subcategory/Lesson tables, ordering, visibility, draft/published, featured flags, CRUD and read APIs with pagination, Redis caching with TTLs, editor-role permissions.
+Tests: hierarchy integrity, permission, cache invalidation.
+
+STEP 10 [DONE] — Android content browsing
+Deliver: subject, category, subcategory and lesson list/detail screens, sort and search within level, featured subjects, Room caching, Paging 3.
+Tests: repository, paging, UI state tests (loading/empty/error/offline).
+
+STEP 11 [PARTIAL] — Lesson content, media and progress
+Deliver: rich lesson content, objectives, attachments (signed URLs), bookmarks, recently viewed, completion tracking, related questions/quizzes/flashcards/notes links, offline download for permitted lessons.
+Tests: attachment access control, progress sync.
+
+STEP 12 [PARTIAL] — Global search v1
+Deliver: PostgreSQL full-text search across subjects, lessons, questions, quizzes, flashcards, notes with permission filtering, recent and suggested searches, filters, pagination, highlighting.
+Tests: private notes and user-owned content never leak to other users.
+
+------------------------------------------------------------
+PHASE 4 — QUESTION BANK (Steps 13–14)
+------------------------------------------------------------
+
+STEP 13 [PARTIAL] — Question bank backend  [CHECKPOINT: owner reviews content model]
+Deliver: question types (single-choice, multi-select, true/false, short answer, descriptive, image/diagram), explanation, difficulty, marks/negative marks, tags, status workflow (draft/review/published/archived), versioning and edit history, duplicate detection, reporting, bulk import with validation, answer-hiding rules.
+Tests: import validation, versioning, correct answers never returned in client-facing payloads.
+
+STEP 14 [PARTIAL] — Android question practice
+Deliver: question detail, practice mode with hints/explanations after answer, bookmarks, question reporting, history, filters.
+Tests: practice flow, state tests, offline behavior.
+
+------------------------------------------------------------
+PHASE 5 — QUIZZES (Steps 15–17)
+------------------------------------------------------------
+
+STEP 15 [DONE] — Quiz engine backend
+Deliver: quiz sets (separate entity), settings (time limit, marks, negative marking, passing score, attempt limit, shuffling, explanation visibility), statuses (draft/published/private/archived), duplicate, safe delete/retention, secure share links, attempt start/submit with server-authoritative scoring and timing, attempt history.
+Tests: scoring correctness (incl. negative marking, multi-select edge cases), attempt limits, timer enforcement, idempotent submit.
+
+STEP 16 [PARTIAL] — Android quiz player and results
+Deliver: quiz list/detail/instructions, quiz player (timer display, navigation, pause only if policy permits), submit, result summary, answer review per settings, attempt history, retry, offline quiz sync rules.
+Tests: player ViewModel, process-death recovery, UI tests.
+
+STEP 17 [TODO] — My Quiz Sets (separate collection)
+Deliver: dedicated screen, one card per set (title, subject, question count, last activity, progress), search, filters (subject/category/lesson/status/date/progress), sorting, create/edit/duplicate/share/archive/delete by ownership, empty state.
+Tests: ownership/IDOR tests, set identity preserved, filter/sort tests.
+
+------------------------------------------------------------
+PHASE 6 — FLASHCARDS (Steps 18–19)
+------------------------------------------------------------
+
+STEP 18 [TODO] — Flashcards backend and spaced repetition
+Deliver: flashcard sets (separate entity), cards (rich text, image/audio), tags, difficulty, import, review history, spaced-repetition scheduler (documented algorithm), set analytics.
+Tests: scheduler correctness, ownership, import validation.
+
+STEP 19 [TODO] — Android flashcards and My Flashcard Sets
+Deliver: library, My Flashcard Sets (one item per set, search/filter/sort, card count, review progress), create/edit, study mode with flip animation, Know/Need Review, shuffle, star, offline review and sync.
+Tests: study session, offline review sync, UI states.
+
+------------------------------------------------------------
+PHASE 7 — NOTES AND OFFLINE SYNC (Steps 20–23)
+------------------------------------------------------------
+
+STEP 20 [TODO] — Notes backend
+Deliver: notes, nested folders, tags, colors, pin/favorite, attachments, templates, links to hierarchy/quiz/flashcard sets, version history, private-by-default, version-based sync endpoints with tombstones.
+Tests: privacy, versioning, sync API.
+
+STEP 21 [TODO] — Android notes workspace and editor
+Deliver: My Notes list, folders, search, sort/filter, rich text editor (headings, bold, italic, underline, lists, checklists, quotes, highlight, links, tables only if reliable), toolbar, undo/redo, word/character count, autosave with visible state, draft recovery, attachments, accessibility labels.
+Tests: editor state, autosave, data-loss-on-termination tests.
+
+STEP 22 [TODO] — Offline mode and synchronization
+Deliver: Room schema for offline entities, WorkManager sync with backoff, version-based conflict detection, documented conflict policy, conflict warning/recovery UI, sync status and last-sync time, encrypted/protected local private data.
+Tests: offline/sync tests, conflict scenarios, migration tests.
+
+STEP 23 [TODO] — Note versions, export and sharing
+Deliver: version history UI and restore, version comparison if feasible, export/share as PDF or text.
+Tests: restore correctness, export content checks.
+
+------------------------------------------------------------
+PHASE 8 — CONTESTS AND EXAMS (Steps 24–27)
+------------------------------------------------------------
+
+STEP 24 [TODO] — Contest backend
+Deliver: contest scheduling, rules, eligibility, capacity, join/leave, server-authoritative timer and scoring, idempotent answer submission, leaderboard (Redis-accelerated, PostgreSQL as source of truth), tie-break rules, results, anti-abuse controls.
+Tests: concurrency/race tests, idempotency, tie-breaking.
+
+STEP 25 [TODO] — Real-time layer
+Deliver: WebSocket design with cross-instance distribution (Redis pub/sub or equivalent), live question delivery, reconnection/resume, heartbeat, mass-join handling, transactional outbox where needed (at-least-once + idempotent consumers; no exactly-once claims).
+Tests: WebSocket tests, reconnect tests, submission-burst tests.
+
+STEP 26 [TODO] — Android contest experience
+Deliver: contest list/detail, lobby, live player, leaderboard, results, history, clear online-only messaging.
+Tests: UI tests, reconnect behavior.
+
+STEP 27 [TODO] — Examination system  [CHECKPOINT: owner decides on tournaments/teams]
+Deliver: exam creation and scheduling, instructions, eligibility, sections, server-side timing, randomization, submission validation, result publication settings, audit trail, exam list/detail/player/result screens. Tournament/team features only if owner approves.
+Tests: timing, interruption recovery, audit trail.
+
+------------------------------------------------------------
+PHASE 9 — ANALYTICS, GAMIFICATION AND HOME (Steps 28–29)
+------------------------------------------------------------
+
+STEP 28 [TODO] — Results, analytics and gamification
+Deliver: accuracy, time spent, subject/lesson performance, weak topics, trends, streaks, daily/weekly/monthly summaries, contest and flashcard progress, downloadable reports, written metric definitions; server-side points, badges, milestones, daily goals, anti-fraud, leaderboard visibility settings; analytics and achievements screens.
+Tests: metric correctness, clients cannot grant points.
+
+STEP 29 [TODO] — Home dashboard
+Deliver: greeting, search, subject shortcuts, continue learning, recent items, shortcuts to My Quiz Sets/Flashcard Sets/Notes, contests, daily goal, streak, recommendations, banners, notifications entry, new-user empty state, skeleton and offline states.
+Tests: UI state tests, dashboard API performance check.
+
+------------------------------------------------------------
+PHASE 10 — ADMIN (Steps 30–31)
+------------------------------------------------------------
+
+STEP 30 [TODO] — Admin backend APIs
+Deliver: user search/moderation, role and fine-grained permission management, content and question management, review/publish workflow, bulk import, contest/exam management, feature flags, app config, audit logs, abuse reports, destructive-action confirmation.
+Tests: authorization matrix tests (every endpoint vs every role).
+
+STEP 31 [TODO] — Admin web panel
+Deliver: responsive web admin: dashboard, users, content, questions, imports, contests, banners, notifications, reports, AI usage/cost, flags, audit logs; MFA for admins where feasible.
+Tests: UI tests, permission-hiding does not replace backend checks.
+
+------------------------------------------------------------
+PHASE 11 — AI (Steps 32–33)
+------------------------------------------------------------
+
+STEP 32 [TODO] — AI gateway backend
+Deliver: provider-neutral AI gateway, prompt templates, per-user quotas, rate and cost limits, abuse controls, usage logging without storing secrets or private note content, consent enforcement, conversation history with user delete.
+Tests: quota enforcement, consent enforcement, provider-failure handling.
+
+STEP 33 [TODO] — AI Notes and Learning assistants (Android)
+Deliver: summarize, explain, outline, revision notes, create flashcards/quiz questions from selection, translate/simplify; learning assistant with hints before answers and step-by-step explanations; review/edit before saving; processing/failure states; quota display; "AI may be wrong" notice; consent dialog.
+Tests: consent flow, failure states, quota display.
+
+------------------------------------------------------------
+PHASE 12 — ENGAGEMENT, MONETIZATION, SUPPORT (Steps 34–35)
+------------------------------------------------------------
+
+STEP 34 [TODO] — Notifications and banners
+Deliver: push and in-app notifications, preferences, contest/study/result/admin reminders, read/unread, deep links, deduplication, rate limits, retry; admin-managed banners with schedule, deep links, targeting, privacy-conscious impression/click tracking.
+Tests: dedup, deep links, schedule windows.
+
+STEP 35 [TODO] — Payments readiness and support
+Deliver: provider-agnostic plan catalog, subscription status, signed webhook validation, server-side entitlement checks, payment history; FAQ, support tickets, bug/content reports, feedback, diagnostics with consent. Do not pick a provider without owner approval.
+Tests: webhook signature and replay tests, entitlement tests.
+
+------------------------------------------------------------
+PHASE 13 — HARDENING AND LAUNCH (Steps 36–40)
+------------------------------------------------------------
+
+STEP 36 [TODO] — Observability and deployment
+Deliver: structured logs (no secrets/PII), metrics (Prometheus/Grafana), tracing, health checks, Docker production images, environment config, secrets management, backup and disaster-recovery plan with restore test, PgBouncer.
+Tests: backup/restore test, health-check test.
+
+STEP 37 [TODO] — Security review  [CHECKPOINT: owner reviews findings]
+Deliver: OWASP-based review (auth, IDOR/BOLA, injection, uploads, rate limits, secrets, logging), dependency scan, Android hardening (storage, network config, obfuscation), privacy review (consent, deletion, export), findings with fixes.
+Tests: security and authorization regression suite.
+
+STEP 38 [TODO] — Load testing and scaling improvements
+Deliver: load/stress/soak test scripts and results, covering mass login, contest join, simultaneous submissions and WebSocket connections; bottleneck analysis; targeted fixes (indexes, caching, read replicas, partitioning only if measured). Report real measured numbers only.
+Tests: documented pass/fail thresholds.
+
+STEP 39 [TODO] — Accessibility, localization and QA  [CHECKPOINT: owner acceptance testing]
+Deliver: accessibility audit (TalkBack, contrast, touch targets, font scaling), full English/Bangla coverage, regression suite, device/screen-size matrix, bug fixes.
+Tests: accessibility checks, UI regression run.
+
+STEP 40 [TODO] — Release preparation
+Deliver: signed release build process, CI release pipeline, Play Store listing checklist, privacy policy and data-safety inputs, staged rollout plan, monitoring and rollback plan, post-launch roadmap (tournaments/teams, dedicated search engine, Kafka, Kubernetes — each only if measured need justifies it).
+Done when: owner can ship a staged release with monitoring in place.
+
+------------------------------------------------------------
+FIRST RESPONSE
+------------------------------------------------------------
+Planning (Steps 1-4) and Steps 5-15 already exist. Read CLAUDE.md and docs/PROGRESS.md in the uploaded project. When the owner says "next", do the next Work queue row. Start with Step 16 (Android quiz player and results) against the Step 15 backend API. One step per response.
+
+FINAL GOAL
+----------
+A polished, secure, maintainable, Android-first education platform (Kotlin, Jetpack Compose, Ktor, PostgreSQL, Redis) designed to scale toward 1 million+ registered users through measured capacity planning, staged infrastructure and realistic load testing, with no unsupported guarantees.

@@ -1,0 +1,94 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-debug-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build installable debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      EXAMBASE_API_BASE_URL: ${{ vars.EXAMBASE_API_BASE_URL }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # The runner image already contains Android SDK 34; Gradle downloads anything missing
+      # (setup-android has accepted the licenses). A manual sdkmanager call only added a way to fail early.
+      - name: Show Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" || true
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Explain API endpoint configuration
+        shell: bash
+        run: |
+          if [[ -z "$EXAMBASE_API_BASE_URL" ]]; then
+            echo "::warning::GitHub Actions variable EXAMBASE_API_BASE_URL is empty. APK will use the emulator-only URL http://10.0.2.2:8080. Set the variable to your deployed HTTPS backend URL for phone connectivity."
+          elif [[ "$EXAMBASE_API_BASE_URL" != https://* ]]; then
+            echo "EXAMBASE_API_BASE_URL must start with https:// for a public backend." >&2
+            exit 1
+          else
+            echo "Using configured HTTPS API endpoint."
+          fi
+
+      - name: Build APK
+        working-directory: android
+        run: gradle --no-daemon --stacktrace :app:assembleDebug -PEXAMBASE_API_BASE_URL="$EXAMBASE_API_BASE_URL"
+
+      - name: Upload build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-reports
+          path: android/**/build/reports
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExamBaseAI-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write install instructions to job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## ExamBaseAI Android APK'
+            echo ''
+            echo '- Download the **ExamBaseAI-debug-apk** artifact from this workflow run.'
+            echo '- Extract the ZIP and install `app-debug.apk` on your Android phone.'
+            if [[ -z "$EXAMBASE_API_BASE_URL" ]]; then
+              echo '- **Backend warning:** no API URL was configured; online features will not connect from a physical phone.'
+            else
+              echo '- API endpoint was configured from the repository variable `EXAMBASE_API_BASE_URL`.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
